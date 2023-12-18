@@ -14,10 +14,10 @@ URL_TELEGRAM_BOT = f"https://api.telegram.org/bot{BOOT_TOKEN}/"
 parametri = {"offset": 0}
 database = db()
 msgXinfo="use these commands to find the right petrol station for you: \n/setStartPosition to set the starting position \n/setHowMuchFuel to set how much fuel you have\n/getGasStation to receive directions to gas stations"
-database.connect("localhost", "root", "", "db_bot_benzinaio")
+database.connect("localhost", "root", "", "bot_benzinaio")
 startMsg="Welcome to the bot, use these commands to set your info: \n/setTipoCarburante to set the fuel type\n/setCapacita to set the capacity of your tank\n/setMaxKm to set the max km you can do with a full tank\n/setName to set your name\n/getInfo to get your info"
 
-api_key_openroute = '5b3ce3597851110001cf624840b7de0666c541c4ad0c21d37ada9a52'
+api_key_openroute = '5b3ce3597851110001cf624862e1e632e8f14dbd8d0cc56c25ef35dc'
 
 url_csv_benzinaii="https://www.mimit.gov.it/images/exportCSV/prezzo_alle_8.csv"
 url_csv_coordinate="https://www.mimit.gov.it/images/exportCSV/anagrafica_impianti_attivi.csv"
@@ -35,40 +35,31 @@ def all_are_set(chat_id):
     else:
         return False
 
-
-def shortest_route_coordinates(start_coords, end_coords_list):
+def shortest_route_coordinates( start_coords, end_coords_list):
+    global api_key_openroute
     try:
-        # Inizializza la lista per tracciare le lunghezze dei percorsi
         route_lengths = []
 
-        # Itera attraverso le coordinate di arrivo
         for end_coords in end_coords_list:
-            # Costruisci l'URL di OpenRouteService per ottenere le direzioni
-            url_openroute = f'https://api.openrouteservice.org/v2/directions/driving-car?api_key={api_key_openroute}&start={start_coords[0]},{start_coords[1]}&end={end_coords[0]},{end_coords[1]}'
-            
-            # Esegui la richiesta HTTP
-            response_openroute = requests.get(url_openroute)
-
-            # Controlla lo stato della risposta
+            # Slightly adjusted coordinates
+            headers = {'Accept': 'application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8',}
+            response_openroute = requests.get(f'https://api.openrouteservice.org/v2/directions/driving-car?api_key={api_key_openroute}&start={start_coords[0]},{start_coords[1]}&end={end_coords[0]},{end_coords[1]}', headers=headers)
             if response_openroute.status_code == 200:
-                # La richiesta è andata a buon fine, ottieni le indicazioni
                 directions_data = response_openroute.json()
-                
-                # Estrai la lunghezza del percorso
                 route_length = directions_data['features'][0]['properties']['segments'][0]['distance']
                 route_lengths.append((end_coords, route_length))
             else:
-                # Gestisci gli errori in modo appropriato
                 print(f"Errore nella richiesta di direzione da OpenRouteService: {response_openroute.status_code}")
+                print(response_openroute.text)  # Print the response text for debugging
                 return None
 
-        # Trova le coordinate corrispondenti al percorso più corto
         shortest_route = min(route_lengths, key=lambda x: x[1])
         return shortest_route[0]
 
     except requests.exceptions.RequestException as req_exc:
         print(f"Errore durante la richiesta HTTP: {req_exc}")
         return None
+
 
 def find_station_ids_by_fuel_type(desc_carburante):
     try:
@@ -86,7 +77,7 @@ def find_station_ids_by_fuel_type(desc_carburante):
         # Itera attraverso le righe del CSV
         for row in csv_reader:
             # Confronta solo le righe corrispondenti al descCarburante specificato
-            if row["descCarburante"] == desc_carburante:
+            if row["descCarburante"].lower() == desc_carburante:
                 # Aggiungi l'idImpianto alla lista
                 station_ids.append(row["idImpianto"])
 
@@ -114,7 +105,7 @@ def find_min_price_station(desc_carburante):
         # Itera attraverso le righe del CSV
         for row in csv_reader:
             # Confronta solo le righe corrispondenti al descCarburante specificato
-            if row["descCarburante"] == desc_carburante:
+            if row["descCarburante"].lower() == desc_carburante:
                 # Confronta il prezzo e aggiorna se trovi un prezzo minore
                 current_price = float(row["prezzo"])
                 if current_price < min_price:
@@ -143,7 +134,7 @@ def get_lat_long_by_id(id_impianto):
     # Cerca il record con l'idImpianto specificato
     for row in csv_reader:
         if row['idImpianto'] == id_impianto:
-            return float(row['Latitudine']), float(row['Longitudine'])
+            return float(row['Longitudine'],float(row['Latitudine']))
     
     # Restituisci None se l'idImpianto non è stato trovato
     return None
