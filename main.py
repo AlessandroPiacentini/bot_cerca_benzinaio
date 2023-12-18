@@ -6,6 +6,9 @@ import json
 from io import StringIO
 import csv
 import pandas as pd
+
+
+
 BOOT_TOKEN = "6928800593:AAGWTWod4qh-t3QN-KX5EhD7SmTpV8oSwaI"
 URL_TELEGRAM_BOT = f"https://api.telegram.org/bot{BOOT_TOKEN}/"
 parametri = {"offset": 0}
@@ -18,6 +21,19 @@ api_key_openroute = '5b3ce3597851110001cf624840b7de0666c541c4ad0c21d37ada9a52'
 
 url_csv_benzinaii="https://www.mimit.gov.it/images/exportCSV/prezzo_alle_8.csv"
 url_csv_coordinate="https://www.mimit.gov.it/images/exportCSV/anagrafica_impianti_attivi.csv"
+
+
+def all_are_set(chat_id):
+    global database
+    check_query = "SELECT * FROM users WHERE chat_id = %s"
+    result = database.execute_query(check_query, (chat_id,))
+    if result:
+        if result[0][1] and result[0][2] and result[0][3] and result[0][4] and result[0][5] and result[0][6]:
+            return True
+        else:
+            return False
+    else:
+        return False
 
 
 def shortest_route_coordinates(start_coords, end_coords_list):
@@ -161,7 +177,7 @@ def get_directions(start_coords, end_coords):
         print(f"Errore nella richiesta di direzione da OpenRouteService: {response_openroute.status_code}")
 
 
-def all_are_setted(chat_id):
+def is_info_set(chat_id):
     global database
     check_query = "SELECT * FROM users WHERE chat_id = %s"
     result = database.execute_query(check_query, (chat_id,))
@@ -222,7 +238,7 @@ while True:
                                     database.execute_query(update_query, (message_text[1], chat_id))
                                 else:
                                     database.execute_query("INSERT INTO users (chat_id, fuel_type) VALUES (%s, %s)", (chat_id, message_text[1]))
-                                if all_are_setted(chat_id):
+                                if is_info_set(chat_id):
                                     requests.post(
                                         URL_TELEGRAM_BOT+"sendMessage",
                                         data={"chat_id": chat_id, "text": msgXinfo}
@@ -252,7 +268,7 @@ while True:
                                 database.execute_query(update_query, (message_text[1], chat_id))
                             else:
                                 database.execute_query("INSERT INTO users (chat_id, capacity) VALUES (%s, %s)", (chat_id, message_text[1]))
-                            if all_are_setted(chat_id):
+                            if is_info_set(chat_id):
                                     requests.post(
                                         URL_TELEGRAM_BOT+"sendMessage",
                                         data={"chat_id": chat_id, "text": msgXinfo}
@@ -277,7 +293,7 @@ while True:
                                 database.execute_query(update_query, (message_text[1], chat_id))
                             else:
                                 database.execute_query("INSERT INTO users (chat_id, max_km) VALUES (%s, %s)", (chat_id, message_text[1]))
-                            if all_are_setted(chat_id):
+                            if is_info_set(chat_id):
                                     requests.post(
                                         URL_TELEGRAM_BOT+"sendMessage",
                                         data={"chat_id": chat_id, "text": msgXinfo}
@@ -302,7 +318,7 @@ while True:
                                 database.execute_query(update_query, (message_text[1], chat_id))
                             else:
                                 database.execute_query("INSERT INTO users (chat_id, name) VALUES (%s, %s)", (chat_id, message_text[1]))
-                            if all_are_setted(chat_id):
+                            if is_info_set(chat_id):
                                     requests.post(
                                         URL_TELEGRAM_BOT+"sendMessage",
                                         data={"chat_id": chat_id, "text": msgXinfo}
@@ -333,7 +349,7 @@ while True:
                             )
                         database.execute_query(f"INSERT INTO chat_{chat_id} (message, date) VALUES (%s, %s)", (message_str, datetime.now()))
                     elif message_text[0] == "/setStartPosition":
-                        if all_are_setted(chat_id):
+                        if is_info_set(chat_id):
                             requests.post(
                                 URL_TELEGRAM_BOT+"sendMessage",
                                 data={"chat_id": chat_id, "text": "Send your position"}
@@ -344,7 +360,7 @@ while True:
                                 data={"chat_id": chat_id, "text": "You must set your info"}
                             )
                     elif message_text[0] == "/setHowMuchFuel":
-                        if all_are_setted(chat_id):
+                        if is_info_set(chat_id):
                             inline_keyboard = {
                                 'inline_keyboard': [
                                     [{'text': '1/4', 'callback_data': '0.25'}],
@@ -365,6 +381,29 @@ while True:
                             )
 
                         database.execute_query(f"INSERT INTO chat_{chat_id} (message, date) VALUES (%s, %s)", (message_str, datetime.now()))
+                    
+                    elif message_text[0] == "/getGasStation":
+                        if all_are_set(chat_id):
+                            inline_keyboard = {
+                                'inline_keyboard': [
+                                    [{'text': 'più vicino', 'callback_data': 'vicino'}],
+                                    [{'text': 'più economico', 'callback_data': 'economico'}],
+                                ]
+                            }
+                            response_text = 'Choose how much fuel you have'
+                            response = requests.post(
+                                URL_TELEGRAM_BOT + 'sendMessage',
+                                data={'chat_id': chat_id, 'text': response_text, 'reply_markup': json.dumps(inline_keyboard)}
+                            )
+                        else:
+                            response_text = 'You must set your info'
+                            requests.post(
+                                URL_TELEGRAM_BOT + "sendMessage",
+                                data={"chat_id": chat_id, "text": response_text}
+                            )
+
+                        database.execute_query(f"INSERT INTO chat_{chat_id} (message, date) VALUES (%s, %s)", (message_str, datetime.now()))
+                    
                     
                     else:
                         requests.post(
@@ -419,6 +458,21 @@ while True:
                             URL_TELEGRAM_BOT+"sendMessage",
                             data={"chat_id": chat_id, "text": "fuel quantity set"}
                         )
+                    elif callback_data == 'economico':
+                        pass
+                    elif callback_data == 'vicino':
+                        start_coords=database.execute_query("SELECT start_position FROM users WHERE chat_id = %s", (chat_id,))[0][0]
+                        type_fuel=database.execute_query("SELECT fuel_type FROM users WHERE chat_id = %s", (chat_id,))[0][0]
+                        end_coords_list = find_station_ids_by_fuel_type(database)
+                        end_coord= shortest_route_coordinates(start_coords, end_coords_list)
+                        google_link=get_directions(start_coords, end_coord)
+                        requests.post(
+                            URL_TELEGRAM_BOT+"sendMessage",
+                            data={"chat_id": chat_id, "text": google_link}
+                        )
+                        
+                    
+                    
                     print("clic bottone gestito")
         else:
             print("No updates")
