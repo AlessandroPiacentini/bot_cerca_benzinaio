@@ -17,7 +17,8 @@ Questo è un bot Telegram che ti aiuta a trovare la stazione di benzina più vic
 
 Per Avviare il bot, segui le seguenti istruzioni:
 
-1. Avvia il server ```bash
+1. Avvia il server 
+    ```bash
     python main.py
     ```
 2. Aprire la chat con il bot telegram [apri](t.me/pa_primo_bot)
