@@ -21,7 +21,7 @@ Per Avviare il bot, segui le seguenti istruzioni:
     ```bash
     python main.py
     ```
-2. Aprire la chat con il bot telegram [apri](t.me/pa_primo_bot)
+2. Aprire la chat con il bot telegram [apri](https://t.me/piacentini_cercabenzina_bot)
 
 ## Autore
 
