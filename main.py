@@ -39,6 +39,34 @@ def get_comune_from_coordinates(latitudine, longitudine):
     return comune
 
 
+def get_id_by_comune(id_list, _comune):
+    id_list_comune = []
+
+    response = requests.get(url_csv_coordinate)
+    response.raise_for_status()
+
+    # Leggi il file CSV direttamente dal contenuto della risposta HTTP
+    csv_reader = response.text.splitlines('\n')
+    
+    # Skip the header row
+    header = csv_reader[0].split(';')
+    for row in csv_reader[2:]:
+        # Use the correct separator (comma) and remove leading/trailing whitespaces
+        row_array = row.replace('\n', '').split(';')
+        row_array = [item.strip() for item in row_array]
+        
+        # print(row_array[5])
+        if (int(row_array[0]) in id_list) and (row_array[6].lower().strip() == _comune.lower().strip()):
+            # Append (Longitude, Latitude) as a tuple
+            try:
+                id_list_comune.append(int(row_array[0]))
+            except ValueError:
+                print(f"Errore durante la conversione in int: {row_array[0]}")
+                
+                pass  # Continue processing the next row
+        # sleep(0.01)  
+    return id_list_comune
+
 def get_coordinates_by_id(id_list, _comune):
     coordinates = []
 
@@ -66,6 +94,33 @@ def get_coordinates_by_id(id_list, _comune):
                 
                 pass  # Continue processing the next row
         # sleep(0.01)  
+    return coordinates
+
+
+def get_coordinates_by_id(id):
+    coordinates = []
+
+    response = requests.get(url_csv_coordinate)
+    response.raise_for_status()
+
+    # Leggi il file CSV direttamente dal contenuto della risposta HTTP
+    csv_reader = response.text.splitlines('\n')
+    
+    # Skip the header row
+    header = csv_reader[0].split(';')
+    for row in csv_reader[2:]:
+        # Use the correct separator (comma) and remove leading/trailing whitespaces
+        row_array = row.replace('\n', '').split(';')
+        row_array = [item.strip() for item in row_array]
+        
+        # print(row_array[5])
+        if (int(row_array[0]) == id):
+            # Append (Longitude, Latitude) as a tuple
+            try:
+                # print(row_array[8], row_array[9])
+                coordinates.append([float(row_array[-1]), float(row_array[-2])])
+            except ValueError:
+                print(f"Errore durante la conversione di coordinate in float: {row_array[-1]}, {row_array[-2]}")
     return coordinates
 
 def all_are_set(chat_id):
@@ -135,7 +190,7 @@ def find_station_ids_by_fuel_type(desc_carburante):
         print(f"Errore durante la richiesta HTTP: {req_exc}")
         return None
 
-def find_min_price_station(desc_carburante):
+def find_min_price_station(id_list):
     try:
         # Esegui la richiesta HTTP per ottenere il contenuto del file CSV
         response = requests.get(url_csv_benzinaii)
@@ -143,21 +198,22 @@ def find_min_price_station(desc_carburante):
         csv_data = response.text
 
         # Leggi il CSV
-        csv_reader = csv.DictReader(StringIO(csv_data), delimiter=';')
+        csv_reader = response.text.splitlines(';')
 
         # Inizializza variabili per tracciare l'idImpianto e il prezzo minore
         min_price = float('inf')
         min_price_station_id = None
 
         # Itera attraverso le righe del CSV
-        for row in csv_reader:
+        for row in csv_reader[2:]:
+            row_array = row.split(';')
             # Confronta solo le righe corrispondenti al descCarburante specificato
-            if row["descCarburante"].lower() == desc_carburante:
+            if int(row_array[0]) in id_list:
                 # Confronta il prezzo e aggiorna se trovi un prezzo minore
-                current_price = float(row["prezzo"])
+                current_price = float(row_array[2])
                 if current_price < min_price:
                     min_price = current_price
-                    min_price_station_id = row["idImpianto"]
+                    min_price_station_id = row_array[0]
 
         # Restituisci l'idImpianto con il prezzo minore
         return min_price_station_id
@@ -497,7 +553,37 @@ while True:
                             data={"chat_id": chat_id, "text": "fuel quantity set"}
                         )
                     elif callback_data == 'economico':
-                        pass
+                        requests.post(
+                            URL_TELEGRAM_BOT+"sendMessage",
+                            data={"chat_id": chat_id, "text": "ricerca in corso..."}
+                        )
+                        risultato_query_sql=database.execute_query("SELECT start_position FROM users WHERE chat_id = %s", (chat_id,))[0][0]
+                        # Utilizza una regular expression per estrarre i valori di latitudine e longitudine
+                        
+                        risultato_query_sql=str(risultato_query_sql).split(";")
+                        # Estrai latitudine e longitudine dai gruppi corrispondenti
+                        longitudine= float(risultato_query_sql[0])
+                        latitudine= float(risultato_query_sql[1])
+
+                        # Crea un array [latitudine, longitudine]
+                        start_coords = [longitudine,latitudine]
+                        comune=get_comune_from_coordinates(latitudine, longitudine)  
+                        type_fuel=database.execute_query("SELECT fuel_type FROM users WHERE chat_id = %s", (chat_id,))[0][0]
+                        idImpianti_list = find_station_ids_by_fuel_type(type_fuel)
+                        idImpianti_list=get_id_by_comune(idImpianti_list, comune)
+                        id_min_price=find_min_price_station(idImpianti_list)
+                        end_coord= get_coordinates_by_id(id_min_price)
+                        google_link=get_directions(start_coords, end_coord)
+                        requests.post(
+                            URL_TELEGRAM_BOT+"sendMessage",
+                            data={"chat_id": chat_id, "text": google_link}
+                        )
+                    
+                    
+                    
+                    
+                    
+                    
                     elif callback_data == 'vicino':
                         requests.post(
                             URL_TELEGRAM_BOT+"sendMessage",
