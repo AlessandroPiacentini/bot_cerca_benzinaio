@@ -97,8 +97,8 @@ def get_coordinates_by_id(id_list, _comune):
     return coordinates
 
 
-def get_coordinates_by_id(id):
-    coordinates = []
+def get_coordinate_by_id(id):
+    coordinates =None
 
     response = requests.get(url_csv_coordinate)
     response.raise_for_status()
@@ -118,7 +118,7 @@ def get_coordinates_by_id(id):
             # Append (Longitude, Latitude) as a tuple
             try:
                 # print(row_array[8], row_array[9])
-                coordinates.append([float(row_array[-1]), float(row_array[-2])])
+                coordinates=[float(row_array[-1]), float(row_array[-2])]
             except ValueError:
                 print(f"Errore durante la conversione di coordinate in float: {row_array[-1]}, {row_array[-2]}")
     return coordinates
@@ -213,7 +213,7 @@ def find_min_price_station(id_list):
                 current_price = float(row_array[2])
                 if current_price < min_price:
                     min_price = current_price
-                    min_price_station_id = row_array[0]
+                    min_price_station_id = int(row_array[0])
 
         # Restituisci l'idImpianto con il prezzo minore
         return min_price_station_id
@@ -572,7 +572,7 @@ while True:
                         idImpianti_list = find_station_ids_by_fuel_type(type_fuel)
                         idImpianti_list=get_id_by_comune(idImpianti_list, comune)
                         id_min_price=find_min_price_station(idImpianti_list)
-                        end_coord= get_coordinates_by_id(id_min_price)
+                        end_coord= get_coordinate_by_id(id_min_price)
                         google_link=get_directions(start_coords, end_coord)
                         requests.post(
                             URL_TELEGRAM_BOT+"sendMessage",
