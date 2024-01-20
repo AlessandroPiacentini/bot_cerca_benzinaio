@@ -12,13 +12,19 @@ from telegram_library import TelegramLibrary as TL
 
 
 
-BOT_TOKEN = "6928800593:AAGWTWod4qh-t3QN-KX5EhD7SmTpV8oSwaI"
+import json
+
+with open("secret.json", "r") as f:
+    data = json.load(f)
+
+BOT_TOKEN = data["BOT_TOKEN"]
+api_key_openroute = data["api_key_openroute"]
+
 database = db()
 msgXinfo="use these commands to find the right petrol station for you: \n/setStartPosition to set the starting position \n/setHowMuchFuel to set how much fuel you have\n/getGasStation to receive directions to gas stations"
 database.connect("localhost", "root", "", "bot_benzinaio")
 startMsg="Welcome to the bot, use these commands to set your info: \n/setTipoCarburante to set the fuel type\n/setCapacita to set the capacity of your tank\n/setMaxKm to set the max km you can do with a full tank\n/setName to set your name\n/getInfo to get your info"
 
-api_key_openroute = '5b3ce3597851110001cf624862e1e632e8f14dbd8d0cc56c25ef35dc'
 
 url_csv_benzinaii="https://www.mimit.gov.it/images/exportCSV/prezzo_alle_8.csv"
 url_csv_coordinate="https://www.mimit.gov.it/images/exportCSV/anagrafica_impianti_attivi.csv"
